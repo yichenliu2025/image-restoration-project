@@ -54,6 +54,24 @@ The Mean Filter replaces each pixel with the average value of the pixels inside 
 
 All pixels within the kernel contribute equally to the output.
 
+For a kernel of size $(2r+1)\times(2r+1)$, the filtered pixel can be written as:
+
+$$
+I_{\text{out}}(x,y)
+===================
+
+\frac{1}{(2r+1)^2}
+\sum_{i=-r}^{r}
+\sum_{j=-r}^{r}
+I(x+i,y+j)
+$$
+
+where:
+
+* $I(x,y)$ is the original image intensity
+* $r$ determines the radius of the kernel
+* $I_{\text{out}}(x,y)$ is the filtered output
+
 A larger kernel produces stronger smoothing, but also removes more fine image detail and softens edges.
 
 **Main parameters:**
@@ -74,15 +92,43 @@ The Gaussian Filter performs weighted averaging using a Gaussian distribution.
 
 Unlike the Mean Filter, neighbouring pixels do not contribute equally. Pixels closer to the centre of the kernel receive greater weight.
 
-The weighting function is based on the Gaussian distribution:
+The two-dimensional Gaussian function is:
 
-```text
-G(x, y) = (1 / 2πσ²) × exp(-(x² + y²) / 2σ²)
-```
+$$
+G(x,y)
+======
 
-Both the kernel size and Gaussian sigma affect the resulting smoothing behaviour.
+\frac{1}{2\pi\sigma^2}
+\exp
+\left(
+-\frac{x^2+y^2}{2\sigma^2}
+\right)
+$$
 
-A larger sigma spreads the Gaussian distribution over a wider area, resulting in stronger smoothing.
+The filtered image is obtained by convolving the image with the Gaussian kernel:
+
+$$
+I_{\text{out}}(x,y)
+===================
+
+\sum_i
+\sum_j
+G(i,j),
+I(x-i,y-j)
+$$
+
+where:
+
+* $G(i,j)$ is the Gaussian kernel weight
+* $\sigma$ controls the spread of the Gaussian distribution
+* $I(x,y)$ is the original image
+* $I_{\text{out}}(x,y)$ is the filtered image
+
+A small $\sigma$ concentrates most of the weight near the centre of the kernel.
+
+A larger $\sigma$ spreads the weight across a wider area, resulting in stronger smoothing.
+
+This also explains why increasing the kernel size alone may not significantly increase blur if $\sigma$ remains small.
 
 **Main parameters:**
 
@@ -99,11 +145,33 @@ A larger sigma spreads the Gaussian distribution over a wider area, resulting in
 
 ### Median Filter
 
-The Median Filter replaces each pixel with the median value of the pixels inside its neighbourhood.
+The Median Filter replaces each pixel with the median value inside its local neighbourhood.
 
-Unlike averaging filters, extreme pixel values do not strongly influence the result.
+Unlike Mean and Gaussian filtering, it does not calculate an average.
 
-This makes Median Filtering particularly effective for removing impulse noise such as salt-and-pepper noise.
+Mathematically:
+
+$$
+I_{\text{out}}(x,y)
+===================
+
+\operatorname{median}
+\left{
+I(x+i,y+j)
+\mid
+(i,j)\in\Omega
+\right}
+$$
+
+where:
+
+* $\Omega$ represents the neighbourhood around the current pixel
+* $I(x+i,y+j)$ represents the pixel values inside that neighbourhood
+* $\operatorname{median}$ selects the middle value after the values are ordered
+
+Because extreme pixel values do not strongly influence the median, this filter is particularly effective for removing impulse noise such as salt-and-pepper noise.
+
+Unlike Mean and Gaussian filtering, the Median Filter is a **non-linear filter**.
 
 **Main parameters:**
 
@@ -121,14 +189,50 @@ This makes Median Filtering particularly effective for removing impulse noise su
 
 The Bilateral Filter performs edge-preserving smoothing.
 
-Unlike Gaussian Filtering, the weight assigned to neighbouring pixels depends on two different factors:
+Unlike Gaussian Filtering, the weight assigned to neighbouring pixels depends on both their spatial distance and their color or intensity difference.
 
-* Spatial distance between pixels
-* Color or intensity difference between pixels
+The filtered value at pixel $p$ can be written as:
+
+$$
+I_{\text{out}}(p)
+=================
+
+\frac{1}{W_p}
+\sum_{q\in\Omega}
+w(p,q),I(q)
+$$
+
+where:
+
+$$
+w(p,q)
+======
+
+\exp
+\left(
+-\frac{|p-q|^2}{2\sigma_s^2}
+\right)
+\exp
+\left(
+-\frac{|I(p)-I(q)|^2}{2\sigma_r^2}
+\right)
+$$
+
+and the normalization factor is:
+
+$$
+W_p
+===
+
+\sum_{q\in\Omega}
+w(p,q)
+$$
+
+The first exponential term measures spatial similarity, while the second measures color or intensity similarity.
 
 Pixels that are physically close but have very different colors receive less influence.
 
-This allows the algorithm to smooth relatively uniform areas while reducing unwanted smoothing across strong edges.
+This allows the filter to smooth relatively uniform image regions while preserving strong edges.
 
 **Main parameters:**
 
@@ -149,17 +253,54 @@ This allows the algorithm to smooth relatively uniform areas while reducing unwa
 
 The Guided Filter is an edge-preserving filtering technique based on a local linear model.
 
-Within a local window, the output image is assumed to have an approximately linear relationship with a guidance image:
+Within a local window $\omega_k$, the output image is assumed to have an approximately linear relationship with a guidance image:
 
-```text
-q = aI + b
-```
+$$
+q_i
+===
+
+a_k I_i+b_k
+$$
 
 where:
 
-* `q` is the filtered output
-* `I` is the guidance image
-* `a` and `b` are locally estimated coefficients
+* $q_i$ is the filtered output
+* $I_i$ is the guidance image
+* $a_k$ and $b_k$ are locally estimated coefficients
+
+The coefficients can be estimated using:
+
+$$
+a_k
+===
+
+\frac{
+\frac{1}{|\omega|}
+\sum_{i\in\omega_k} I_i p_i
+---------------------------
+
+\mu_k \bar{p}_k
+}{
+\sigma_k^2+\epsilon
+}
+$$
+
+and:
+
+$$
+b_k
+===
+
+\bar{p}_k-a_k\mu_k
+$$
+
+where:
+
+* $p$ is the input image being filtered
+* $\mu_k$ is the mean of the guidance image inside the local window
+* $\sigma_k^2$ is the variance of the guidance image
+* $\bar{p}_k$ is the mean of the input image inside the window
+* $\epsilon$ is a regularization parameter
 
 In the current implementation, a grayscale representation of the original image is used as the guidance image.
 
@@ -183,13 +324,61 @@ The local linear relationship allows the filter to smooth image regions while pr
 
 Non-Local Means uses a fundamentally different approach from traditional local filters.
 
-Instead of estimating a pixel only from immediately neighbouring pixels, the algorithm searches a larger area for image patches with similar structure.
+Instead of estimating a pixel only from immediately neighbouring pixels, the algorithm searches a larger region for image patches with similar structure.
 
-Similar patches contribute more strongly to the denoised result.
+The estimated value of a pixel $p$ can be expressed as:
 
-This allows Non-Local Means to use repeated textures and structures elsewhere in the image when estimating cleaner pixel values.
+$$
+I_{\text{out}}(p)
+=================
 
-The additional patch comparison also makes the algorithm more computationally expensive than simpler filters.
+\frac{1}{Z(p)}
+\sum_{q\in\Omega}
+w(p,q),I(q)
+$$
+
+where:
+
+$$
+Z(p)
+====
+
+\sum_{q\in\Omega}
+w(p,q)
+$$
+
+is a normalization factor.
+
+The similarity weight between two pixels is determined by comparing the image patches surrounding them:
+
+$$
+w(p,q)
+======
+
+\exp
+\left(
+-\frac{
+|P(p)-P(q)|^2
+}{
+h^2
+}
+\right)
+$$
+
+where:
+
+* $P(p)$ is the image patch surrounding pixel $p$
+* $P(q)$ is the image patch surrounding another pixel $q$
+* $|P(p)-P(q)|^2$ measures the difference between the two patches
+* $h$ controls the denoising strength
+
+If two patches are very similar, their weight becomes large and they contribute strongly to the final result.
+
+If the patches are very different, their contribution becomes small.
+
+This allows Non-Local Means to use repeated textures and structures elsewhere in the search region when estimating cleaner pixel values.
+
+Because many patches must be compared, the algorithm is more computationally expensive than simpler local filters.
 
 **Main parameters:**
 
@@ -204,7 +393,6 @@ The additional patch comparison also makes the algorithm more computationally ex
 * Texture-preserving noise reduction
 * Photographic noise removal
 
----
 
 ## Image Viewer
 
