@@ -54,12 +54,11 @@ The Mean Filter replaces each pixel with the average value of the pixels inside 
 
 All pixels within the kernel contribute equally to the output.
 
-For a kernel of size $(2r+1)\times(2r+1)$, the filtered pixel can be written as:
+For a kernel of size $(2r+1) \times (2r+1)$, the filtered pixel can be written as:
 
 $$
 I_{\text{out}}(x,y)
-===================
-
+=
 \frac{1}{(2r+1)^2}
 \sum_{i=-r}^{r}
 \sum_{j=-r}^{r}
@@ -68,21 +67,21 @@ $$
 
 where:
 
-* $I(x,y)$ is the original image intensity
-* $r$ determines the radius of the kernel
-* $I_{\text{out}}(x,y)$ is the filtered output
+- $I(x,y)$ is the original image intensity
+- $r$ determines the radius of the kernel
+- $I_{\text{out}}(x,y)$ is the filtered output
 
 A larger kernel produces stronger smoothing, but also removes more fine image detail and softens edges.
 
 **Main parameters:**
 
-* Kernel Size
+- Kernel Size
 
 **Typical use:**
 
-* Basic image smoothing
-* Simple noise reduction
-* Demonstrating spatial averaging
+- Basic image smoothing
+- Simple noise reduction
+- Demonstrating spatial averaging
 
 ---
 
@@ -96,11 +95,9 @@ The two-dimensional Gaussian function is:
 
 $$
 G(x,y)
-======
-
+=
 \frac{1}{2\pi\sigma^2}
-\exp
-\left(
+\exp\left(
 -\frac{x^2+y^2}{2\sigma^2}
 \right)
 $$
@@ -109,20 +106,18 @@ The filtered image is obtained by convolving the image with the Gaussian kernel:
 
 $$
 I_{\text{out}}(x,y)
-===================
-
+=
 \sum_i
 \sum_j
-G(i,j),
-I(x-i,y-j)
+G(i,j)I(x-i,y-j)
 $$
 
 where:
 
-* $G(i,j)$ is the Gaussian kernel weight
-* $\sigma$ controls the spread of the Gaussian distribution
-* $I(x,y)$ is the original image
-* $I_{\text{out}}(x,y)$ is the filtered image
+- $G(i,j)$ is the Gaussian kernel weight
+- $\sigma$ controls the spread of the Gaussian distribution
+- $I(x,y)$ is the original image
+- $I_{\text{out}}(x,y)$ is the filtered image
 
 A small $\sigma$ concentrates most of the weight near the centre of the kernel.
 
@@ -132,14 +127,14 @@ This also explains why increasing the kernel size alone may not significantly in
 
 **Main parameters:**
 
-* Kernel Size
-* Sigma
+- Kernel Size
+- Sigma
 
 **Typical use:**
 
-* Gaussian noise reduction
-* Image smoothing
-* Pre-processing for other computer-vision algorithms
+- Gaussian noise reduction
+- Image smoothing
+- Pre-processing for other computer-vision algorithms
 
 ---
 
@@ -153,35 +148,34 @@ Mathematically:
 
 $$
 I_{\text{out}}(x,y)
-===================
-
+=
 \operatorname{median}
-\left{
+\left\{
 I(x+i,y+j)
 \mid
 (i,j)\in\Omega
-\right}
+\right\}
 $$
 
 where:
 
-* $\Omega$ represents the neighbourhood around the current pixel
-* $I(x+i,y+j)$ represents the pixel values inside that neighbourhood
-* $\operatorname{median}$ selects the middle value after the values are ordered
+- $\Omega$ represents the neighbourhood around the current pixel
+- $I(x+i,y+j)$ represents the pixel values inside that neighbourhood
+- $\operatorname{median}$ selects the middle value after the values are ordered
 
 Because extreme pixel values do not strongly influence the median, this filter is particularly effective for removing impulse noise such as salt-and-pepper noise.
 
-Unlike Mean and Gaussian filtering, the Median Filter is a **non-linear filter**.
+Unlike Mean and Gaussian filtering, the Median Filter is a non-linear filter.
 
 **Main parameters:**
 
-* Kernel Size
+- Kernel Size
 
 **Typical use:**
 
-* Salt-and-pepper noise removal
-* Impulse noise reduction
-* Smoothing while preserving some edges
+- Salt-and-pepper noise removal
+- Impulse noise reduction
+- Smoothing while preserving some edges
 
 ---
 
@@ -195,26 +189,22 @@ The filtered value at pixel $p$ can be written as:
 
 $$
 I_{\text{out}}(p)
-=================
-
+=
 \frac{1}{W_p}
 \sum_{q\in\Omega}
-w(p,q),I(q)
+w(p,q)I(q)
 $$
 
 where:
 
 $$
 w(p,q)
-======
-
-\exp
-\left(
--\frac{|p-q|^2}{2\sigma_s^2}
+=
+\exp\left(
+-\frac{\|p-q\|^2}{2\sigma_s^2}
 \right)
-\exp
-\left(
--\frac{|I(p)-I(q)|^2}{2\sigma_r^2}
+\exp\left(
+-\frac{\|I(p)-I(q)\|^2}{2\sigma_r^2}
 \right)
 $$
 
@@ -222,13 +212,14 @@ and the normalization factor is:
 
 $$
 W_p
-===
-
+=
 \sum_{q\in\Omega}
 w(p,q)
 $$
 
-The first exponential term measures spatial similarity, while the second measures color or intensity similarity.
+The first exponential term measures spatial similarity.
+
+The second exponential term measures color or intensity similarity.
 
 Pixels that are physically close but have very different colors receive less influence.
 
@@ -236,16 +227,16 @@ This allows the filter to smooth relatively uniform image regions while preservi
 
 **Main parameters:**
 
-* Diameter
-* Sigma Color
-* Sigma Space
+- Diameter
+- Sigma Color
+- Sigma Space
 
 **Typical use:**
 
-* Edge-preserving smoothing
-* Noise reduction
-* Surface smoothing
-* Image enhancement
+- Edge-preserving smoothing
+- Noise reduction
+- Surface smoothing
+- Image enhancement
 
 ---
 
@@ -257,31 +248,28 @@ Within a local window $\omega_k$, the output image is assumed to have an approxi
 
 $$
 q_i
-===
-
-a_k I_i+b_k
+=
+a_k I_i + b_k
 $$
 
 where:
 
-* $q_i$ is the filtered output
-* $I_i$ is the guidance image
-* $a_k$ and $b_k$ are locally estimated coefficients
+- $q_i$ is the filtered output
+- $I_i$ is the guidance image
+- $a_k$ and $b_k$ are locally estimated coefficients
 
-The coefficients can be estimated using:
+The coefficient $a_k$ can be estimated using:
 
 $$
 a_k
-===
-
+=
 \frac{
 \frac{1}{|\omega|}
 \sum_{i\in\omega_k} I_i p_i
----------------------------
-
+-
 \mu_k \bar{p}_k
 }{
-\sigma_k^2+\epsilon
+\sigma_k^2 + \epsilon
 }
 $$
 
@@ -289,18 +277,17 @@ and:
 
 $$
 b_k
-===
-
-\bar{p}_k-a_k\mu_k
+=
+\bar{p}_k - a_k\mu_k
 $$
 
 where:
 
-* $p$ is the input image being filtered
-* $\mu_k$ is the mean of the guidance image inside the local window
-* $\sigma_k^2$ is the variance of the guidance image
-* $\bar{p}_k$ is the mean of the input image inside the window
-* $\epsilon$ is a regularization parameter
+- $p$ is the input image being filtered
+- $\mu_k$ is the mean of the guidance image inside the local window
+- $\sigma_k^2$ is the variance of the guidance image
+- $\bar{p}_k$ is the mean of the input image inside the window
+- $\epsilon$ is a regularization parameter
 
 In the current implementation, a grayscale representation of the original image is used as the guidance image.
 
@@ -308,15 +295,15 @@ The local linear relationship allows the filter to smooth image regions while pr
 
 **Main parameters:**
 
-* Radius
-* Epsilon
+- Radius
+- Epsilon
 
 **Typical use:**
 
-* Edge-preserving smoothing
-* Detail enhancement
-* Image restoration
-* Structure-aware filtering
+- Edge-preserving smoothing
+- Detail enhancement
+- Image restoration
+- Structure-aware filtering
 
 ---
 
@@ -330,19 +317,17 @@ The estimated value of a pixel $p$ can be expressed as:
 
 $$
 I_{\text{out}}(p)
-=================
-
+=
 \frac{1}{Z(p)}
 \sum_{q\in\Omega}
-w(p,q),I(q)
+w(p,q)I(q)
 $$
 
 where:
 
 $$
 Z(p)
-====
-
+=
 \sum_{q\in\Omega}
 w(p,q)
 $$
@@ -353,12 +338,10 @@ The similarity weight between two pixels is determined by comparing the image pa
 
 $$
 w(p,q)
-======
-
-\exp
-\left(
+=
+\exp\left(
 -\frac{
-|P(p)-P(q)|^2
+\|P(p)-P(q)\|^2
 }{
 h^2
 }
@@ -367,14 +350,21 @@ $$
 
 where:
 
-* $P(p)$ is the image patch surrounding pixel $p$
-* $P(q)$ is the image patch surrounding another pixel $q$
-* $|P(p)-P(q)|^2$ measures the difference between the two patches
-* $h$ controls the denoising strength
+- $P(p)$ is the image patch surrounding pixel $p$
+- $P(q)$ is the image patch surrounding another pixel $q$
+- $\|P(p)-P(q)\|^2$ measures the difference between the two patches
+- $h$ controls the denoising strength
 
-If two patches are very similar, their weight becomes large and they contribute strongly to the final result.
+If two patches are very similar, then:
 
-If the patches are very different, their contribution becomes small.
+$$
+\|P(p)-P(q)\|^2
+\approx 0
+$$
+
+and their similarity weight becomes relatively large.
+
+If two patches are very different, their similarity weight becomes small.
 
 This allows Non-Local Means to use repeated textures and structures elsewhere in the search region when estimating cleaner pixel values.
 
@@ -382,17 +372,16 @@ Because many patches must be compared, the algorithm is more computationally exp
 
 **Main parameters:**
 
-* Strength
-* Color Strength
-* Template Window
-* Search Window
+- Strength
+- Color Strength
+- Template Window
+- Search Window
 
 **Typical use:**
 
-* Image denoising
-* Texture-preserving noise reduction
-* Photographic noise removal
-
+- Image denoising
+- Texture-preserving noise reduction
+- Photographic noise removal
 
 ## Image Viewer
 
