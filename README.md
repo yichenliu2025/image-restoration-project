@@ -1,4 +1,4 @@
-# Image Restoration & Super-Resolution Lab
+# Image Restoration & Super-Resolution project
 
 A Python desktop application for exploring classical image filtering, image restoration, and modern super-resolution techniques.
 
