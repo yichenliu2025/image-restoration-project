@@ -44,6 +44,8 @@ The application now provides six classical filtering and denoising methods, algo
 * Processing runtime display
 * Automatic image-position synchronization
 
+---
+
 ## Algorithms
 
 ### Mean Filter
