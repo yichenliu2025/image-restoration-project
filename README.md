@@ -56,8 +56,14 @@ All pixels within the kernel contribute equally to the output.
 
 The filtering operation can be written as:
 
-    I_out(x, y) = (1 / (2r + 1)^2) * sum(sum(I(x + i, y + j)))
-                  for i = -r to r, j = -r to r
+$$
+I_{\mathrm{out}}(x,y)
+=
+\frac{1}{(2r+1)^2}
+\sum_{i=-r}^{r}
+\sum_{j=-r}^{r}
+I(x+i,y+j)
+$$
 
 where:
 
@@ -87,11 +93,24 @@ Unlike the Mean Filter, neighbouring pixels do not contribute equally. Pixels cl
 
 The weighting function is based on the Gaussian distribution:
 
-    G(x, y) = (1 / (2 * pi * sigma^2)) * exp(-(x^2 + y^2) / (2 * sigma^2))
+$$
+G(x,y)
+=
+\frac{1}{2\pi\sigma^2}
+\exp\left(
+-\frac{x^2+y^2}{2\sigma^2}
+\right)
+$$
 
 The filtered image is obtained by convolving the image with the Gaussian kernel:
 
-    I_out(x, y) = sum(sum(G(i, j) * I(x - i, y - j)))
+$$
+I_{\mathrm{out}}(x,y)
+=
+\sum_i
+\sum_j
+G(i,j)\,I(x-i,y-j)
+$$
 
 where:
 
@@ -127,8 +146,14 @@ Unlike Mean and Gaussian filtering, it does not calculate an average.
 
 The operation can be represented as:
 
-    I_out(x, y) = median{ I(x + i, y + j) }
-                  for all (i, j) in the local neighbourhood
+$$
+I_{\mathrm{out}}(x,y)
+=
+\underset{(i,j)\in\Omega}{\mathrm{median}}
+\left[
+I(x+i,y+j)
+\right]
+$$
 
 where:
 
@@ -166,18 +191,35 @@ Unlike Gaussian Filtering, the weight assigned to neighbouring pixels depends on
 
 The filtered value at pixel `p` can be written as:
 
-    I_out(p) = (1 / W_p) * sum(w(p, q) * I(q))
+$$
+I_{\mathrm{out}}(p)
+=
+\frac{1}{W_p}
+\sum_{q\in\Omega}
+w(p,q)\,I(q)
+$$
 
 The bilateral weight is:
 
-    w(p, q) =
-        exp(-|p - q|^2 / (2 * sigma_space^2))
-        *
-        exp(-|I(p) - I(q)|^2 / (2 * sigma_color^2))
+$$
+w(p,q)
+=
+\exp\left(
+-\frac{\left\|p-q\right\|^2}{2\sigma_{\mathrm{space}}^2}
+\right)
+\exp\left(
+-\frac{\left\|I(p)-I(q)\right\|^2}{2\sigma_{\mathrm{color}}^2}
+\right)
+$$
 
 The normalization factor is:
 
-    W_p = sum(w(p, q))
+$$
+W_p
+=
+\sum_{q\in\Omega}
+w(p,q)
+$$
 
 The first exponential term represents **spatial similarity**.
 
@@ -218,7 +260,11 @@ Instead of directly defining spatial and color weights, the Guided Filter assume
 
 Inside a local window:
 
-    q_i = a_k * I_i + b_k
+$$
+q_i
+=
+a_k I_i+b_k
+$$
 
 where:
 
@@ -228,14 +274,26 @@ where:
 
 One of the local coefficients can be written as:
 
-    a_k =
-        (mean(I_i * p_i) - mean(I_i) * mean(p_i))
-        /
-        (variance(I_i) + epsilon)
+$$
+a_k
+=
+\frac{
+\frac{1}{|\omega_k|}
+\sum_{i\in\omega_k} I_i p_i
+-
+\mu_k\bar{p}_k
+}{
+\sigma_k^2+\epsilon
+}
+$$
 
 The second coefficient is:
 
-    b_k = mean(p_i) - a_k * mean(I_i)
+$$
+b_k
+=
+\bar{p}_k-a_k\mu_k
+$$
 
 where:
 
@@ -275,15 +333,36 @@ Instead of estimating a pixel only from immediately neighbouring pixels, the alg
 
 The estimated value of a pixel `p` can be expressed as:
 
-    I_out(p) = (1 / Z(p)) * sum(w(p, q) * I(q))
+$$
+I_{\mathrm{out}}(p)
+=
+\frac{1}{Z(p)}
+\sum_{q\in\Omega}
+w(p,q)\,I(q)
+$$
 
 The normalization factor is:
 
-    Z(p) = sum(w(p, q))
+$$
+Z(p)
+=
+\sum_{q\in\Omega}
+w(p,q)
+$$
 
 The similarity weight between two image patches can be represented as:
 
-    w(p, q) = exp(-|P(p) - P(q)|^2 / h^2)
+$$
+w(p,q)
+=
+\exp\left(
+-\frac{
+\left\|P(p)-P(q)\right\|^2
+}{
+h^2
+}
+\right)
+$$
 
 where:
 
@@ -294,7 +373,11 @@ where:
 
 When two image patches are very similar:
 
-    |P(p) - P(q)|^2 approaches 0
+$$
+\left\|P(p)-P(q)\right\|^2
+\approx
+0
+$$
 
 their similarity weight becomes relatively large.
 
@@ -324,7 +407,6 @@ Because many patches must be compared, Non-Local Means is significantly more com
 - Image denoising
 - Texture-preserving noise reduction
 - Photographic noise removal
-
 
 ## Image Viewer
 
