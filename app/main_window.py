@@ -2,12 +2,7 @@ import time
 import cv2
 
 from PySide6.QtCore import Qt
-
-from PySide6.QtGui import (
-    QImage,
-    QPixmap
-)
-
+from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -30,23 +25,78 @@ from PySide6.QtWidgets import (
 from algorithms.mean_filter import MeanFilter
 from algorithms.gaussian_filter import GaussianFilter
 from algorithms.median_filter import MedianFilter
+from algorithms.bilateral_filter import BilateralFilter
+from algorithms.guided_filter import GuidedFilter
+from algorithms.non_local_means import NonLocalMeansFilter
 
-from algorithms.bilateral_filter import (
-    BilateralFilter
-)
-
-from algorithms.guided_filter import (
-    GuidedFilter
-)
-
-from algorithms.non_local_means import (
-    NonLocalMeansFilter
-)
+from algorithms.upscaling.nearest_neighbor import NearestNeighborUpscaler
+from algorithms.upscaling.bilinear import BilinearUpscaler
+from algorithms.upscaling.bicubic import BicubicUpscaler
+from algorithms.upscaling.lanczos import LanczosUpscaler
 
 from app.image_viewer import ImageViewer
 
 
 class MainWindow(QMainWindow):
+
+    FILTER_ALGORITHMS = [
+        "Mean Filter",
+        "Gaussian Filter",
+        "Median Filter",
+        "Bilateral Filter",
+        "Guided Filter",
+        "Non-Local Means",
+    ]
+
+    UPSCALING_ALGORITHMS = [
+        "Nearest Neighbor",
+        "Bilinear",
+        "Bicubic",
+        "Lanczos",
+    ]
+
+    DESCRIPTIONS = {
+
+        "Mean Filter":
+            "Simple averaging filter. Every pixel inside "
+            "the kernel contributes equally.",
+
+        "Gaussian Filter":
+            "Weighted smoothing using a Gaussian distribution. "
+            "Nearby pixels receive larger weights.",
+
+        "Median Filter":
+            "Non-linear neighbourhood filter that replaces "
+            "each pixel with the local median.",
+
+        "Bilateral Filter":
+            "Edge-preserving smoothing based on both spatial "
+            "distance and color similarity.",
+
+        "Guided Filter":
+            "Edge-preserving filtering based on a local linear "
+            "relationship with a guidance image.",
+
+        "Non-Local Means":
+            "Patch-based denoising that searches a larger "
+            "region for similar local structures.",
+
+        "Nearest Neighbor":
+            "Upscaling by copying the nearest source pixel. "
+            "Extremely fast, but often visibly blocky.",
+
+        "Bilinear":
+            "Upscaling by blending nearby source pixels. "
+            "Smoother than nearest neighbor, but softer.",
+
+        "Bicubic":
+            "Cubic interpolation over a larger neighbourhood. "
+            "A strong traditional enlargement baseline.",
+
+        "Lanczos":
+            "High-quality interpolation using a Lanczos kernel. "
+            "Often sharp, but can ring near hard edges.",
+    }
 
     def __init__(self):
         super().__init__()
@@ -56,95 +106,105 @@ class MainWindow(QMainWindow):
         # ==================================================
 
         self.setWindowTitle(
-            "Image Restoration & Super-Resolution Lab v0.2"
+            "Image Restoration & Super-Resolution Lab v0.3"
         )
 
         self.resize(
-            1450,
-            900
+            1500,
+            920
         )
 
         # ==================================================
-        # Image data
+        # Data
         # ==================================================
 
         self.original_image = None
         self.processed_image = None
 
+        self.parameter_page_indices = {}
+
+        # Prevent synchronization loops while a viewer
+        # is being programmatically updated.
+        self._syncing_viewers = False
+
         # ==================================================
         # Main widget
         # ==================================================
 
-        central_widget = QWidget()
+        central = QWidget()
 
         self.setCentralWidget(
-            central_widget
+            central
         )
 
         main_layout = QVBoxLayout(
-            central_widget
+            central
         )
 
         # ==================================================
-        # Title
+        # Header
         # ==================================================
 
-        title_label = QLabel(
+        title = QLabel(
             "Image Restoration & Super-Resolution Lab"
         )
 
-        title_label.setAlignment(
+        title.setAlignment(
             Qt.AlignmentFlag.AlignCenter
         )
 
-        title_label.setStyleSheet(
+        title.setStyleSheet(
             """
             QLabel {
                 font-size: 26px;
                 font-weight: bold;
-                padding: 8px;
+                padding: 6px;
             }
             """
         )
 
-        version_label = QLabel(
-            "v0.2 · Advanced Traditional Filtering"
+        version = QLabel(
+            "v0.3 · Image Upscaling & Super-Resolution Foundations"
         )
 
-        version_label.setAlignment(
+        version.setAlignment(
             Qt.AlignmentFlag.AlignCenter
         )
 
-        version_label.setStyleSheet(
+        version.setStyleSheet(
             """
             QLabel {
                 color: #888888;
                 font-size: 13px;
-                padding-bottom: 6px;
+                padding-bottom: 4px;
             }
             """
         )
 
         main_layout.addWidget(
-            title_label
+            title
         )
 
         main_layout.addWidget(
-            version_label
+            version
         )
 
         # ==================================================
         # Viewer toolbar
         # ==================================================
 
-        viewer_toolbar = QHBoxLayout()
+        toolbar = QHBoxLayout()
 
         self.fit_button = QPushButton(
             "Fit"
         )
 
-        self.actual_size_button = QPushButton(
-            "100%"
+        self.original_100_button = QPushButton(
+            "Original 100%"
+        )
+
+        self.result_100_button = QPushButton(
+            "Result 100%"
         )
 
         self.sync_checkbox = QCheckBox(
@@ -155,30 +215,42 @@ class MainWindow(QMainWindow):
             True
         )
 
-        self.zoom_label = QLabel(
-            "Zoom: --"
+        self.original_zoom_label = QLabel(
+            "Original: --"
         )
 
-        viewer_toolbar.addWidget(
+        self.result_zoom_label = QLabel(
+            "Result: --"
+        )
+
+        toolbar.addWidget(
             self.fit_button
         )
 
-        viewer_toolbar.addWidget(
-            self.actual_size_button
+        toolbar.addWidget(
+            self.original_100_button
         )
 
-        viewer_toolbar.addWidget(
+        toolbar.addWidget(
+            self.result_100_button
+        )
+
+        toolbar.addWidget(
             self.sync_checkbox
         )
 
-        viewer_toolbar.addStretch()
+        toolbar.addStretch()
 
-        viewer_toolbar.addWidget(
-            self.zoom_label
+        toolbar.addWidget(
+            self.original_zoom_label
+        )
+
+        toolbar.addWidget(
+            self.result_zoom_label
         )
 
         main_layout.addLayout(
-            viewer_toolbar
+            toolbar
         )
 
         # ==================================================
@@ -187,13 +259,12 @@ class MainWindow(QMainWindow):
 
         viewer_layout = QHBoxLayout()
 
-        # Original
-        original_group = QGroupBox(
+        self.original_group = QGroupBox(
             "Original"
         )
 
         original_layout = QVBoxLayout(
-            original_group
+            self.original_group
         )
 
         self.original_viewer = ImageViewer()
@@ -202,13 +273,12 @@ class MainWindow(QMainWindow):
             self.original_viewer
         )
 
-        # Processed
-        processed_group = QGroupBox(
+        self.processed_group = QGroupBox(
             "Processed"
         )
 
         processed_layout = QVBoxLayout(
-            processed_group
+            self.processed_group
         )
 
         self.processed_viewer = ImageViewer()
@@ -222,18 +292,18 @@ class MainWindow(QMainWindow):
         )
 
         viewer_layout.addWidget(
-            original_group,
-            stretch=1
+            self.original_group,
+            1
         )
 
         viewer_layout.addWidget(
-            processed_group,
-            stretch=1
+            self.processed_group,
+            1
         )
 
         main_layout.addLayout(
             viewer_layout,
-            stretch=1
+            1
         )
 
         # ==================================================
@@ -248,33 +318,49 @@ class MainWindow(QMainWindow):
             controls_group
         )
 
-        # Algorithm selection
+        # --------------------------------------------------
+        # Category
+        # --------------------------------------------------
+
+        category_row = QHBoxLayout()
+
+        category_row.addWidget(
+            QLabel("Category:")
+        )
+
+        self.category_combo = QComboBox()
+
+        self.category_combo.addItems(
+            [
+                "Traditional Filtering",
+                "Image Upscaling",
+            ]
+        )
+
+        category_row.addWidget(
+            self.category_combo,
+            1
+        )
+
+        controls_layout.addLayout(
+            category_row
+        )
+
+        # --------------------------------------------------
+        # Algorithm
+        # --------------------------------------------------
+
         algorithm_row = QHBoxLayout()
 
-        algorithm_label = QLabel(
-            "Algorithm:"
+        algorithm_row.addWidget(
+            QLabel("Algorithm:")
         )
 
         self.algorithm_combo = QComboBox()
 
-        self.algorithm_combo.addItems(
-            [
-                "Mean Filter",
-                "Gaussian Filter",
-                "Median Filter",
-                "Bilateral Filter",
-                "Guided Filter",
-                "Non-Local Means",
-            ]
-        )
-
-        algorithm_row.addWidget(
-            algorithm_label
-        )
-
         algorithm_row.addWidget(
             self.algorithm_combo,
-            stretch=1
+            1
         )
 
         controls_layout.addLayout(
@@ -285,28 +371,16 @@ class MainWindow(QMainWindow):
         # Dynamic parameter panel
         # ==================================================
 
-        self.parameter_stack = (
-            QStackedWidget()
-        )
+        self.parameter_stack = QStackedWidget()
 
-        self._create_mean_page()
-
-        self._create_gaussian_page()
-
-        self._create_median_page()
-
-        self._create_bilateral_page()
-
-        self._create_guided_page()
-
-        self._create_nlm_page()
+        self._create_parameter_pages()
 
         controls_layout.addWidget(
             self.parameter_stack
         )
 
         # ==================================================
-        # Algorithm information
+        # Algorithm description
         # ==================================================
 
         self.algorithm_info = QLabel()
@@ -337,7 +411,7 @@ class MainWindow(QMainWindow):
         # Main buttons
         # ==================================================
 
-        button_layout = QHBoxLayout()
+        button_row = QHBoxLayout()
 
         self.open_button = QPushButton(
             "Open Image"
@@ -355,24 +429,18 @@ class MainWindow(QMainWindow):
             "Save Result"
         )
 
-        button_layout.addWidget(
-            self.open_button
-        )
-
-        button_layout.addWidget(
-            self.process_button
-        )
-
-        button_layout.addWidget(
-            self.reset_button
-        )
-
-        button_layout.addWidget(
-            self.save_button
-        )
+        for button in (
+            self.open_button,
+            self.process_button,
+            self.reset_button,
+            self.save_button,
+        ):
+            button_row.addWidget(
+                button
+            )
 
         main_layout.addLayout(
-            button_layout
+            button_row
         )
 
         # ==================================================
@@ -391,9 +459,17 @@ class MainWindow(QMainWindow):
             False
         )
 
+        self.result_100_button.setEnabled(
+            False
+        )
+
         # ==================================================
         # Signals
         # ==================================================
+
+        self.category_combo.currentIndexChanged.connect(
+            self.category_changed
+        )
 
         self.algorithm_combo.currentIndexChanged.connect(
             self.algorithm_changed
@@ -419,30 +495,42 @@ class MainWindow(QMainWindow):
             self.fit_views
         )
 
-        self.actual_size_button.clicked.connect(
-            self.actual_size_views
+        self.original_100_button.clicked.connect(
+            self.original_actual_size
+        )
+
+        self.result_100_button.clicked.connect(
+            self.result_actual_size
         )
 
         self.sync_checkbox.toggled.connect(
             self.sync_toggled
         )
 
-        # Original -> Processed
         self.original_viewer.viewChanged.connect(
             self.sync_from_original
         )
 
-        # Processed -> Original
         self.processed_viewer.viewChanged.connect(
             self.sync_from_processed
         )
 
         self.original_viewer.zoomPercentChanged.connect(
-            self.update_zoom_label
+            lambda percent:
+            self.original_zoom_label.setText(
+                f"Original: {percent:.0f}%"
+            )
         )
 
         self.processed_viewer.zoomPercentChanged.connect(
-            self.update_zoom_label
+            lambda percent:
+            self.result_zoom_label.setText(
+                f"Result: {percent:.0f}%"
+            )
+        )
+
+        self.upscale_factor.currentIndexChanged.connect(
+            self.update_target_resolution
         )
 
         # ==================================================
@@ -453,7 +541,7 @@ class MainWindow(QMainWindow):
             "Ready"
         )
 
-        self.algorithm_changed(
+        self.category_changed(
             0
         )
 
@@ -461,8 +549,24 @@ class MainWindow(QMainWindow):
     # Parameter page helpers
     # ======================================================
 
-    def _make_spinbox(
+    def _register_page(
         self,
+        names,
+        page
+    ):
+
+        index = self.parameter_stack.addWidget(
+            page
+        )
+
+        for name in names:
+
+            self.parameter_page_indices[name] = (
+                index
+            )
+
+    @staticmethod
+    def _spin(
         minimum,
         maximum,
         value,
@@ -486,8 +590,8 @@ class MainWindow(QMainWindow):
 
         return box
 
-    def _make_double_spinbox(
-        self,
+    @staticmethod
+    def _double_spin(
         minimum,
         maximum,
         value,
@@ -517,10 +621,14 @@ class MainWindow(QMainWindow):
         return box
 
     # ======================================================
-    # Mean parameters
+    # Parameter pages
     # ======================================================
 
-    def _create_mean_page(self):
+    def _create_parameter_pages(self):
+
+        # --------------------------------------------------
+        # Mean
+        # --------------------------------------------------
 
         page = QWidget()
 
@@ -528,13 +636,11 @@ class MainWindow(QMainWindow):
             page
         )
 
-        self.mean_kernel = (
-            self._make_spinbox(
-                1,
-                31,
-                5,
-                2
-            )
+        self.mean_kernel = self._spin(
+            1,
+            31,
+            5,
+            2
         )
 
         form.addRow(
@@ -542,15 +648,14 @@ class MainWindow(QMainWindow):
             self.mean_kernel
         )
 
-        self.parameter_stack.addWidget(
+        self._register_page(
+            ["Mean Filter"],
             page
         )
 
-    # ======================================================
-    # Gaussian parameters
-    # ======================================================
-
-    def _create_gaussian_page(self):
+        # --------------------------------------------------
+        # Gaussian
+        # --------------------------------------------------
 
         page = QWidget()
 
@@ -558,23 +663,19 @@ class MainWindow(QMainWindow):
             page
         )
 
-        self.gaussian_kernel = (
-            self._make_spinbox(
-                1,
-                31,
-                5,
-                2
-            )
+        self.gaussian_kernel = self._spin(
+            1,
+            31,
+            5,
+            2
         )
 
-        self.gaussian_sigma = (
-            self._make_double_spinbox(
-                0.0,
-                20.0,
-                1.0,
-                0.1,
-                2
-            )
+        self.gaussian_sigma = self._double_spin(
+            0.0,
+            20.0,
+            1.0,
+            0.1,
+            2
         )
 
         form.addRow(
@@ -587,15 +688,14 @@ class MainWindow(QMainWindow):
             self.gaussian_sigma
         )
 
-        self.parameter_stack.addWidget(
+        self._register_page(
+            ["Gaussian Filter"],
             page
         )
 
-    # ======================================================
-    # Median parameters
-    # ======================================================
-
-    def _create_median_page(self):
+        # --------------------------------------------------
+        # Median
+        # --------------------------------------------------
 
         page = QWidget()
 
@@ -603,13 +703,11 @@ class MainWindow(QMainWindow):
             page
         )
 
-        self.median_kernel = (
-            self._make_spinbox(
-                3,
-                31,
-                5,
-                2
-            )
+        self.median_kernel = self._spin(
+            3,
+            31,
+            5,
+            2
         )
 
         form.addRow(
@@ -617,15 +715,14 @@ class MainWindow(QMainWindow):
             self.median_kernel
         )
 
-        self.parameter_stack.addWidget(
+        self._register_page(
+            ["Median Filter"],
             page
         )
 
-    # ======================================================
-    # Bilateral parameters
-    # ======================================================
-
-    def _create_bilateral_page(self):
+        # --------------------------------------------------
+        # Bilateral
+        # --------------------------------------------------
 
         page = QWidget()
 
@@ -633,17 +730,15 @@ class MainWindow(QMainWindow):
             page
         )
 
-        self.bilateral_diameter = (
-            self._make_spinbox(
-                1,
-                31,
-                9,
-                2
-            )
+        self.bilateral_diameter = self._spin(
+            1,
+            31,
+            9,
+            2
         )
 
         self.bilateral_sigma_color = (
-            self._make_double_spinbox(
+            self._double_spin(
                 1.0,
                 250.0,
                 75.0,
@@ -653,7 +748,7 @@ class MainWindow(QMainWindow):
         )
 
         self.bilateral_sigma_space = (
-            self._make_double_spinbox(
+            self._double_spin(
                 1.0,
                 250.0,
                 75.0,
@@ -677,15 +772,14 @@ class MainWindow(QMainWindow):
             self.bilateral_sigma_space
         )
 
-        self.parameter_stack.addWidget(
+        self._register_page(
+            ["Bilateral Filter"],
             page
         )
 
-    # ======================================================
-    # Guided parameters
-    # ======================================================
-
-    def _create_guided_page(self):
+        # --------------------------------------------------
+        # Guided
+        # --------------------------------------------------
 
         page = QWidget()
 
@@ -693,17 +787,14 @@ class MainWindow(QMainWindow):
             page
         )
 
-        self.guided_radius = (
-            self._make_spinbox(
-                1,
-                50,
-                15,
-                1
-            )
+        self.guided_radius = self._spin(
+            1,
+            50,
+            15
         )
 
         self.guided_epsilon = (
-            self._make_double_spinbox(
+            self._double_spin(
                 0.0001,
                 1.0,
                 0.01,
@@ -722,15 +813,14 @@ class MainWindow(QMainWindow):
             self.guided_epsilon
         )
 
-        self.parameter_stack.addWidget(
+        self._register_page(
+            ["Guided Filter"],
             page
         )
 
-    # ======================================================
-    # NLM parameters
-    # ======================================================
-
-    def _create_nlm_page(self):
+        # --------------------------------------------------
+        # NLM
+        # --------------------------------------------------
 
         page = QWidget()
 
@@ -738,18 +828,16 @@ class MainWindow(QMainWindow):
             page
         )
 
-        self.nlm_strength = (
-            self._make_double_spinbox(
-                0.0,
-                30.0,
-                10.0,
-                1.0,
-                1
-            )
+        self.nlm_strength = self._double_spin(
+            0.0,
+            30.0,
+            10.0,
+            1.0,
+            1
         )
 
         self.nlm_color_strength = (
-            self._make_double_spinbox(
+            self._double_spin(
                 0.0,
                 30.0,
                 10.0,
@@ -758,22 +846,18 @@ class MainWindow(QMainWindow):
             )
         )
 
-        self.nlm_template = (
-            self._make_spinbox(
-                3,
-                15,
-                7,
-                2
-            )
+        self.nlm_template = self._spin(
+            3,
+            15,
+            7,
+            2
         )
 
-        self.nlm_search = (
-            self._make_spinbox(
-                7,
-                35,
-                21,
-                2
-            )
+        self.nlm_search = self._spin(
+            7,
+            35,
+            21,
+            2
         )
 
         form.addRow(
@@ -796,8 +880,128 @@ class MainWindow(QMainWindow):
             self.nlm_search
         )
 
-        self.parameter_stack.addWidget(
+        self._register_page(
+            ["Non-Local Means"],
             page
+        )
+
+        # --------------------------------------------------
+        # Shared Upscaling page
+        # --------------------------------------------------
+
+        page = QWidget()
+
+        form = QFormLayout(
+            page
+        )
+
+        self.upscale_factor = QComboBox()
+
+        self.upscale_factor.addItem(
+            "2x",
+            2
+        )
+
+        self.upscale_factor.addItem(
+            "3x",
+            3
+        )
+
+        self.upscale_factor.addItem(
+            "4x",
+            4
+        )
+
+        self.upscale_factor.setCurrentIndex(
+            1
+        )
+
+        self.target_resolution_label = QLabel(
+            "Open an image to calculate target resolution"
+        )
+
+        self.target_resolution_label.setWordWrap(
+            True
+        )
+
+        note = QLabel(
+            "Traditional interpolation increases pixel count, "
+            "but it does not reconstruct learned image detail."
+        )
+
+        note.setWordWrap(
+            True
+        )
+
+        note.setStyleSheet(
+            "color: #888888;"
+        )
+
+        form.addRow(
+            "Scale Factor:",
+            self.upscale_factor
+        )
+
+        form.addRow(
+            "Target Resolution:",
+            self.target_resolution_label
+        )
+
+        form.addRow(
+            "",
+            note
+        )
+
+        self._register_page(
+            self.UPSCALING_ALGORITHMS,
+            page
+        )
+
+    # ======================================================
+    # Category selection
+    # ======================================================
+
+    def category_changed(
+        self,
+        _index
+    ):
+
+        category = (
+            self.category_combo.currentText()
+        )
+
+        if category == "Traditional Filtering":
+
+            algorithms = (
+                self.FILTER_ALGORITHMS
+            )
+
+        else:
+
+            algorithms = (
+                self.UPSCALING_ALGORITHMS
+            )
+
+        self.algorithm_combo.blockSignals(
+            True
+        )
+
+        self.algorithm_combo.clear()
+
+        self.algorithm_combo.addItems(
+            algorithms
+        )
+
+        self.algorithm_combo.blockSignals(
+            False
+        )
+
+        self.algorithm_combo.setCurrentIndex(
+            0
+        )
+
+        self.algorithm_changed(
+            0
         )
 
     # ======================================================
@@ -806,54 +1010,38 @@ class MainWindow(QMainWindow):
 
     def algorithm_changed(
         self,
-        index
+        _index
     ):
-
-        self.parameter_stack.setCurrentIndex(
-            index
-        )
-
-        descriptions = {
-
-            "Mean Filter":
-                "Simple averaging filter. "
-                "All pixels inside the kernel contribute "
-                "equally to the output.",
-
-            "Gaussian Filter":
-                "Weighted smoothing using a Gaussian "
-                "distribution. Nearby pixels receive "
-                "larger weights.",
-
-            "Median Filter":
-                "Replaces each pixel with the median of "
-                "its neighbourhood. Particularly useful "
-                "for impulse noise.",
-
-            "Bilateral Filter":
-                "Edge-preserving smoothing based on both "
-                "spatial distance and color similarity.",
-
-            "Guided Filter":
-                "Edge-preserving filter based on a local "
-                "linear relationship with a guidance image.",
-
-            "Non-Local Means":
-                "Denoising method that searches for similar "
-                "image patches over a larger area instead "
-                "of using only immediate neighbours.",
-        }
 
         algorithm = (
             self.algorithm_combo.currentText()
         )
 
-        self.algorithm_info.setText(
-            descriptions[algorithm]
+        if not algorithm:
+            return
+
+        page_index = (
+            self.parameter_page_indices.get(
+                algorithm
+            )
         )
 
+        if page_index is not None:
+
+            self.parameter_stack.setCurrentIndex(
+                page_index
+            )
+
+        self.algorithm_info.setText(
+            self.DESCRIPTIONS[algorithm]
+        )
+
+        if algorithm in self.UPSCALING_ALGORITHMS:
+
+            self.update_target_resolution()
+
     # ======================================================
-    # Utility
+    # Utilities
     # ======================================================
 
     @staticmethod
@@ -867,10 +1055,53 @@ class MainWindow(QMainWindow):
             value
         )
 
-        if value % 2 == 0:
-            value += 1
+        if value % 2 == 1:
+            return value
 
-        return value
+        return value + 1
+
+    def current_scale_factor(self):
+
+        return int(
+            self.upscale_factor.currentData()
+        )
+
+    # ======================================================
+    # Target resolution
+    # ======================================================
+
+    def update_target_resolution(self):
+
+        if self.original_image is None:
+
+            self.target_resolution_label.setText(
+                "Open an image to calculate target resolution"
+            )
+
+            return
+
+        height, width = (
+            self.original_image.shape[:2]
+        )
+
+        factor = (
+            self.current_scale_factor()
+        )
+
+        target_width = (
+            width * factor
+        )
+
+        target_height = (
+            height * factor
+        )
+
+        self.target_resolution_label.setText(
+            (
+                f"{width} × {height}  →  "
+                f"{target_width} × {target_height}"
+            )
+        )
 
     # ======================================================
     # Open image
@@ -878,7 +1109,7 @@ class MainWindow(QMainWindow):
 
     def open_image(self):
 
-        file_path, _ = QFileDialog.getOpenFileName(
+        path, _ = QFileDialog.getOpenFileName(
             self,
             "Open Image",
             "",
@@ -888,11 +1119,11 @@ class MainWindow(QMainWindow):
             )
         )
 
-        if not file_path:
+        if not path:
             return
 
         image = cv2.imread(
-            file_path,
+            path,
             cv2.IMREAD_COLOR
         )
 
@@ -910,18 +1141,26 @@ class MainWindow(QMainWindow):
 
         self.processed_image = None
 
-        original_pixmap = (
+        self.original_viewer.set_pixmap(
             self.cv_image_to_pixmap(
                 image
             )
         )
 
-        self.original_viewer.set_pixmap(
-            original_pixmap
-        )
-
         self.processed_viewer.clear_image(
             "No processed image"
+        )
+
+        height, width = (
+            image.shape[:2]
+        )
+
+        self.original_group.setTitle(
+            f"Original · {width} × {height}"
+        )
+
+        self.processed_group.setTitle(
+            "Processed"
         )
 
         self.process_button.setEnabled(
@@ -936,12 +1175,99 @@ class MainWindow(QMainWindow):
             False
         )
 
-        height, width = (
-            image.shape[:2]
+        self.result_100_button.setEnabled(
+            False
         )
+
+        self.result_zoom_label.setText(
+            "Result: --"
+        )
+
+        self.update_target_resolution()
 
         self.statusBar().showMessage(
             f"Loaded image: {width} × {height}"
+        )
+
+    # ======================================================
+    # Save
+    # ======================================================
+
+    def save_image(self):
+
+        if self.processed_image is None:
+
+            QMessageBox.warning(
+                self,
+                "No Result",
+                "There is no processed image to save."
+            )
+
+            return
+
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Processed Image",
+            "processed_image.png",
+            (
+                "PNG Image (*.png);;"
+                "JPEG Image (*.jpg *.jpeg);;"
+                "Bitmap Image (*.bmp)"
+            )
+        )
+
+        if not path:
+            return
+
+        success = cv2.imwrite(
+            path,
+            self.processed_image
+        )
+
+        if success:
+
+            self.statusBar().showMessage(
+                f"Saved: {path}"
+            )
+
+        else:
+
+            QMessageBox.critical(
+                self,
+                "Save Error",
+                "The image could not be saved."
+            )
+
+    # ======================================================
+    # Reset
+    # ======================================================
+
+    def reset_result(self):
+
+        self.processed_image = None
+
+        self.processed_viewer.clear_image(
+            "No processed image"
+        )
+
+        self.processed_group.setTitle(
+            "Processed"
+        )
+
+        self.save_button.setEnabled(
+            False
+        )
+
+        self.result_100_button.setEnabled(
+            False
+        )
+
+        self.result_zoom_label.setText(
+            "Result: --"
+        )
+
+        self.statusBar().showMessage(
+            "Processing result reset"
         )
 
     # ======================================================
@@ -964,6 +1290,39 @@ class MainWindow(QMainWindow):
             self.algorithm_combo.currentText()
         )
 
+        handlers = {
+
+            "Mean Filter":
+                self._run_mean,
+
+            "Gaussian Filter":
+                self._run_gaussian,
+
+            "Median Filter":
+                self._run_median,
+
+            "Bilateral Filter":
+                self._run_bilateral,
+
+            "Guided Filter":
+                self._run_guided,
+
+            "Non-Local Means":
+                self._run_nlm,
+
+            "Nearest Neighbor":
+                self._run_nearest,
+
+            "Bilinear":
+                self._run_bilinear,
+
+            "Bicubic":
+                self._run_bicubic,
+
+            "Lanczos":
+                self._run_lanczos,
+        }
+
         self.process_button.setEnabled(
             False
         )
@@ -972,189 +1331,14 @@ class MainWindow(QMainWindow):
             Qt.CursorShape.WaitCursor
         )
 
-        start_time = (
-            time.perf_counter()
-        )
+        start = time.perf_counter()
 
         try:
 
-            # ----------------------------------------------
-            # Mean
-            # ----------------------------------------------
-
-            if algorithm == "Mean Filter":
-
-                kernel = (
-                    self.mean_kernel.value()
-                )
-
-                self.processed_image = (
-                    MeanFilter.process(
-                        self.original_image,
-                        kernel
-                    )
-                )
-
-                parameter_text = (
-                    f"Kernel={kernel}"
-                )
-
-            # ----------------------------------------------
-            # Gaussian
-            # ----------------------------------------------
-
-            elif algorithm == "Gaussian Filter":
-
-                kernel = self.make_odd(
-                    self.gaussian_kernel.value()
-                )
-
-                sigma = (
-                    self.gaussian_sigma.value()
-                )
-
-                self.processed_image = (
-                    GaussianFilter.process(
-                        self.original_image,
-                        kernel,
-                        sigma
-                    )
-                )
-
-                parameter_text = (
-                    f"Kernel={kernel}, "
-                    f"Sigma={sigma:.2f}"
-                )
-
-            # ----------------------------------------------
-            # Median
-            # ----------------------------------------------
-
-            elif algorithm == "Median Filter":
-
-                kernel = self.make_odd(
-                    self.median_kernel.value(),
-                    3
-                )
-
-                self.processed_image = (
-                    MedianFilter.process(
-                        self.original_image,
-                        kernel
-                    )
-                )
-
-                parameter_text = (
-                    f"Kernel={kernel}"
-                )
-
-            # ----------------------------------------------
-            # Bilateral
-            # ----------------------------------------------
-
-            elif algorithm == "Bilateral Filter":
-
-                diameter = (
-                    self.bilateral_diameter.value()
-                )
-
-                sigma_color = (
-                    self.bilateral_sigma_color.value()
-                )
-
-                sigma_space = (
-                    self.bilateral_sigma_space.value()
-                )
-
-                self.processed_image = (
-                    BilateralFilter.process(
-                        self.original_image,
-                        diameter,
-                        sigma_color,
-                        sigma_space
-                    )
-                )
-
-                parameter_text = (
-                    f"d={diameter}, "
-                    f"σColor={sigma_color:.1f}, "
-                    f"σSpace={sigma_space:.1f}"
-                )
-
-            # ----------------------------------------------
-            # Guided
-            # ----------------------------------------------
-
-            elif algorithm == "Guided Filter":
-
-                radius = (
-                    self.guided_radius.value()
-                )
-
-                epsilon = (
-                    self.guided_epsilon.value()
-                )
-
-                self.processed_image = (
-                    GuidedFilter.process(
-                        self.original_image,
-                        radius,
-                        epsilon
-                    )
-                )
-
-                parameter_text = (
-                    f"Radius={radius}, "
-                    f"Epsilon={epsilon:.4f}"
-                )
-
-            # ----------------------------------------------
-            # Non-Local Means
-            # ----------------------------------------------
-
-            elif algorithm == "Non-Local Means":
-
-                strength = (
-                    self.nlm_strength.value()
-                )
-
-                color_strength = (
-                    self.nlm_color_strength.value()
-                )
-
-                template_window = (
-                    self.make_odd(
-                        self.nlm_template.value(),
-                        3
-                    )
-                )
-
-                search_window = (
-                    self.make_odd(
-                        self.nlm_search.value(),
-                        7
-                    )
-                )
-
-                self.processed_image = (
-                    NonLocalMeansFilter.process(
-                        self.original_image,
-                        strength,
-                        color_strength,
-                        template_window,
-                        search_window
-                    )
-                )
-
-                parameter_text = (
-                    f"h={strength:.1f}, "
-                    f"hColor={color_strength:.1f}, "
-                    f"Template={template_window}, "
-                    f"Search={search_window}"
-                )
-
-            else:
-                return
+            (
+                self.processed_image,
+                parameter_text
+            ) = handlers[algorithm]()
 
         except Exception as error:
 
@@ -1174,121 +1358,297 @@ class MainWindow(QMainWindow):
                 True
             )
 
-        elapsed_time = (
-            time.perf_counter()
-            - start_time
+        elapsed = (
+            time.perf_counter() - start
         )
 
-        # ----------------------------------------------
-        # Display
-        # ----------------------------------------------
+        # Capture the current source view BEFORE
+        # inserting the processed image.
 
-        processed_pixmap = (
-            self.cv_image_to_pixmap(
-                self.processed_image
-            )
-        )
+        sync_state = None
 
-        self.processed_viewer.set_pixmap(
-            processed_pixmap
-        )
+        if (
+            self.sync_checkbox.isChecked()
+            and self.original_viewer.has_image()
+        ):
 
-        # Match the current original view.
-        if self.sync_checkbox.isChecked():
-
-            state = (
+            sync_state = (
                 self.original_viewer.get_view_state()
             )
 
-            self.processed_viewer.apply_view_state(
-                *state
+        self._syncing_viewers = True
+
+        try:
+
+            self.processed_viewer.set_pixmap(
+                self.cv_image_to_pixmap(
+                    self.processed_image
+                )
             )
+
+            if sync_state is not None:
+
+                self.processed_viewer.apply_view_state(
+                    *sync_state
+                )
+
+        finally:
+
+            self._syncing_viewers = False
+
+        height, width = (
+            self.processed_image.shape[:2]
+        )
+
+        self.processed_group.setTitle(
+            f"Processed · {width} × {height}"
+        )
 
         self.save_button.setEnabled(
             True
         )
 
-        height, width = (
-            self.processed_image.shape[:2]
+        self.result_100_button.setEnabled(
+            True
         )
 
         self.statusBar().showMessage(
             (
                 f"{algorithm} completed | "
                 f"{parameter_text} | "
-                f"{width} × {height} | "
-                f"{elapsed_time:.3f} s"
+                f"Output: {width} × {height} | "
+                f"{elapsed:.3f} s"
             )
         )
 
     # ======================================================
-    # Reset
+    # Filter handlers
     # ======================================================
 
-    def reset_result(self):
+    def _run_mean(self):
 
-        self.processed_image = None
-
-        self.processed_viewer.clear_image(
-            "No processed image"
+        kernel = (
+            self.mean_kernel.value()
         )
 
-        self.save_button.setEnabled(
-            False
+        result = MeanFilter.process(
+            self.original_image,
+            kernel
         )
 
-        self.statusBar().showMessage(
-            "Processing result reset"
+        return (
+            result,
+            f"Kernel={kernel}"
         )
 
-    # ======================================================
-    # Save
-    # ======================================================
+    def _run_gaussian(self):
 
-    def save_image(self):
+        kernel = self.make_odd(
+            self.gaussian_kernel.value()
+        )
 
-        if self.processed_image is None:
+        sigma = (
+            self.gaussian_sigma.value()
+        )
 
-            QMessageBox.warning(
-                self,
-                "No Result",
-                "There is no processed image to save."
-            )
+        result = GaussianFilter.process(
+            self.original_image,
+            kernel,
+            sigma
+        )
 
-            return
-
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Processed Image",
-            "processed_image.png",
+        return (
+            result,
             (
-                "PNG Image (*.png);;"
-                "JPEG Image (*.jpg *.jpeg);;"
-                "Bitmap Image (*.bmp)"
+                f"Kernel={kernel}, "
+                f"Sigma={sigma:.2f}"
             )
         )
 
-        if not file_path:
-            return
+    def _run_median(self):
 
-        success = cv2.imwrite(
-            file_path,
-            self.processed_image
+        kernel = self.make_odd(
+            self.median_kernel.value(),
+            3
         )
 
-        if success:
+        result = MedianFilter.process(
+            self.original_image,
+            kernel
+        )
 
-            self.statusBar().showMessage(
-                f"Saved: {file_path}"
+        return (
+            result,
+            f"Kernel={kernel}"
+        )
+
+    def _run_bilateral(self):
+
+        diameter = (
+            self.bilateral_diameter.value()
+        )
+
+        sigma_color = (
+            self.bilateral_sigma_color.value()
+        )
+
+        sigma_space = (
+            self.bilateral_sigma_space.value()
+        )
+
+        result = BilateralFilter.process(
+            self.original_image,
+            diameter,
+            sigma_color,
+            sigma_space
+        )
+
+        return (
+            result,
+            (
+                f"d={diameter}, "
+                f"SigmaColor={sigma_color:.1f}, "
+                f"SigmaSpace={sigma_space:.1f}"
             )
+        )
 
-        else:
+    def _run_guided(self):
 
-            QMessageBox.critical(
-                self,
-                "Save Error",
-                "The image could not be saved."
+        radius = (
+            self.guided_radius.value()
+        )
+
+        epsilon = (
+            self.guided_epsilon.value()
+        )
+
+        result = GuidedFilter.process(
+            self.original_image,
+            radius,
+            epsilon
+        )
+
+        return (
+            result,
+            (
+                f"Radius={radius}, "
+                f"Epsilon={epsilon:.4f}"
             )
+        )
+
+    def _run_nlm(self):
+
+        strength = (
+            self.nlm_strength.value()
+        )
+
+        color_strength = (
+            self.nlm_color_strength.value()
+        )
+
+        template = self.make_odd(
+            self.nlm_template.value(),
+            3
+        )
+
+        search = self.make_odd(
+            self.nlm_search.value(),
+            7
+        )
+
+        result = NonLocalMeansFilter.process(
+            self.original_image,
+            strength,
+            color_strength,
+            template,
+            search
+        )
+
+        return (
+            result,
+            (
+                f"h={strength:.1f}, "
+                f"hColor={color_strength:.1f}, "
+                f"Template={template}, "
+                f"Search={search}"
+            )
+        )
+
+    # ======================================================
+    # Upscaling handlers
+    # ======================================================
+
+    def _run_nearest(self):
+
+        factor = (
+            self.current_scale_factor()
+        )
+
+        result = (
+            NearestNeighborUpscaler.process(
+                self.original_image,
+                factor
+            )
+        )
+
+        return (
+            result,
+            f"Scale={factor}x"
+        )
+
+    def _run_bilinear(self):
+
+        factor = (
+            self.current_scale_factor()
+        )
+
+        result = (
+            BilinearUpscaler.process(
+                self.original_image,
+                factor
+            )
+        )
+
+        return (
+            result,
+            f"Scale={factor}x"
+        )
+
+    def _run_bicubic(self):
+
+        factor = (
+            self.current_scale_factor()
+        )
+
+        result = (
+            BicubicUpscaler.process(
+                self.original_image,
+                factor
+            )
+        )
+
+        return (
+            result,
+            f"Scale={factor}x"
+        )
+
+    def _run_lanczos(self):
+
+        factor = (
+            self.current_scale_factor()
+        )
+
+        result = (
+            LanczosUpscaler.process(
+                self.original_image,
+                factor
+            )
+        )
+
+        return (
+            result,
+            f"Scale={factor}x"
+        )
 
     # ======================================================
     # OpenCV -> Qt
@@ -1299,13 +1659,13 @@ class MainWindow(QMainWindow):
         image
     ):
 
-        rgb_image = cv2.cvtColor(
+        rgb = cv2.cvtColor(
             image,
             cv2.COLOR_BGR2RGB
         )
 
         height, width, channels = (
-            rgb_image.shape
+            rgb.shape
         )
 
         bytes_per_line = (
@@ -1313,14 +1673,12 @@ class MainWindow(QMainWindow):
         )
 
         q_image = QImage(
-            rgb_image.data,
+            rgb.data,
             width,
             height,
             bytes_per_line,
             QImage.Format.Format_RGB888
-        )
-
-        q_image = q_image.copy()
+        ).copy()
 
         return QPixmap.fromImage(
             q_image
@@ -1337,17 +1695,26 @@ class MainWindow(QMainWindow):
         y
     ):
 
-        if not self.sync_checkbox.isChecked():
+        if (
+            self._syncing_viewers
+            or not self.sync_checkbox.isChecked()
+            or not self.processed_viewer.has_image()
+        ):
             return
 
-        if not self.processed_viewer.has_image():
-            return
+        self._syncing_viewers = True
 
-        self.processed_viewer.apply_view_state(
-            zoom,
-            x,
-            y
-        )
+        try:
+
+            self.processed_viewer.apply_view_state(
+                zoom,
+                x,
+                y
+            )
+
+        finally:
+
+            self._syncing_viewers = False
 
     def sync_from_processed(
         self,
@@ -1356,37 +1723,40 @@ class MainWindow(QMainWindow):
         y
     ):
 
-        if not self.sync_checkbox.isChecked():
+        if (
+            self._syncing_viewers
+            or not self.sync_checkbox.isChecked()
+            or not self.original_viewer.has_image()
+        ):
             return
 
-        if not self.original_viewer.has_image():
-            return
+        self._syncing_viewers = True
 
-        self.original_viewer.apply_view_state(
-            zoom,
-            x,
-            y
-        )
+        try:
+
+            self.original_viewer.apply_view_state(
+                zoom,
+                x,
+                y
+            )
+
+        finally:
+
+            self._syncing_viewers = False
 
     def sync_toggled(
         self,
         checked
     ):
 
-        if not checked:
-            return
-
         if (
-            self.original_viewer.has_image()
+            checked
+            and self.original_viewer.has_image()
             and self.processed_viewer.has_image()
         ):
 
-            state = (
-                self.original_viewer.get_view_state()
-            )
-
             self.processed_viewer.apply_view_state(
-                *state
+                *self.original_viewer.get_view_state()
             )
 
     # ======================================================
@@ -1406,24 +1776,14 @@ class MainWindow(QMainWindow):
 
             self.processed_viewer.fit_to_window()
 
-    def actual_size_views(self):
+    def original_actual_size(self):
 
         if self.original_viewer.has_image():
 
             self.original_viewer.actual_size()
 
-        if (
-            not self.sync_checkbox.isChecked()
-            and self.processed_viewer.has_image()
-        ):
+    def result_actual_size(self):
+
+        if self.processed_viewer.has_image():
 
             self.processed_viewer.actual_size()
-
-    def update_zoom_label(
-        self,
-        percent
-    ):
-
-        self.zoom_label.setText(
-            f"Zoom: {percent:.0f}%"
-        )
