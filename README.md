@@ -1081,7 +1081,6 @@ Neural Super-Resolution
         (next stage)
 ```
 
-## Development Roadmap
 
 ## Development Roadmap
 
@@ -1150,30 +1149,84 @@ Learned Image Reconstruction
 
 ### Future Development
 
-Later versions are planned to explore:
+Later versions of the project are planned to expand from traditional interpolation into modern neural-network-based image restoration and super-resolution.
 
-* FSRCNN
-* EDSR
-* Real-ESRGAN
-* SwinIR
-* Additional modern super-resolution models
-* Multi-algorithm comparison mode
-* PSNR benchmarking
-* SSIM benchmarking
-* CPU / GPU performance comparison
-* NVIDIA CUDA acceleration
-* Model management
-* Advanced image restoration
-* Final polished desktop interface
+Planned areas of development include:
+
+#### Neural Super-Resolution
+
+- FSRCNN
+- EDSR
+- Real-ESRGAN
+- SwinIR
+- Additional modern super-resolution architectures
+- Pre-trained model loading and management
+- Multiple neural upscaling factors
+- Real-world degraded image restoration
+
+#### Performance and Acceleration
+
+- NVIDIA CUDA acceleration
+- GPU-based neural-network inference
+- CPU / GPU performance comparison
+- Model inference runtime measurement
+- Hardware information display
+- Memory and performance optimization
+
+#### Comparison and Benchmarking
+
+- Multi-algorithm comparison mode
+- Traditional interpolation vs. neural super-resolution comparison
+- Synchronized multi-image inspection
+- PSNR benchmarking
+- SSIM benchmarking
+- Runtime benchmarking
+- Quality / performance trade-off analysis
+
+#### Application Architecture
+
+- Dedicated super-resolution model system
+- Model manager
+- Automatic model detection
+- Model download and storage support
+- Background processing
+- Worker threads for long-running inference
+- Progress reporting
+- Improved error handling
+
+#### User Interface
+
+After the main algorithmic framework is complete, the graphical interface will receive a dedicated UI / UX redesign.
+
+Planned improvements include:
+
+- Modern dark desktop interface
+- Algorithm navigation sidebar
+- Improved parameter panels
+- Before / After comparison slider
+- Unified SVG icons
+- Improved spacing and typography
+- Processing progress display
+- Model and hardware information
+- More polished benchmarking views
+- Improved visual comparison tools
+
+The long-term objective is to develop the project from an experimental image-processing application into a complete and polished image-restoration environment.
 
 ---
 
 ## Long-Term Goal
 
-The long-term goal of this project is to create a complete visual environment for studying the progression of image-restoration techniques:
+The long-term goal of this project is to create a complete visual environment for studying the progression of image-restoration and super-resolution techniques.
+
+The project follows the technological progression from classical mathematical image processing toward modern learning-based reconstruction:
 
 ```text
 Classical Filtering
+        ↓
+Edge-Preserving Filtering
+        ↓
+Non-Local Denoising
         ↓
 Image Interpolation
         ↓
@@ -1184,9 +1237,22 @@ Residual Networks
 GAN-Based Restoration
         ↓
 Transformer Super-Resolution
+        ↓
+Benchmarking & Comparison
+        ↓
+Polished Desktop Application
 ```
 
-The final application is intended to serve both as a practical image-restoration tool and as a record of the learning process behind each algorithm.
+Each stage is implemented as part of the same application so that traditional and modern approaches can eventually be compared within a consistent visual environment.
+
+The final application is intended to serve two purposes:
+
+- A practical desktop tool for experimenting with image restoration and super-resolution
+- A technical record of the learning and development process behind each algorithm
+
+Rather than presenting only the final neural-network models, the project preserves the progression from simple spatial filters to increasingly advanced image-reconstruction techniques.
+
+This makes it possible to study not only **which algorithm performs better**, but also **how image-restoration methods evolved and why more advanced approaches became necessary**.
 
 ---
 
@@ -1194,20 +1260,85 @@ The final application is intended to serve both as a practical image-restoration
 
 This project originated from a collection of Python and OpenCV experiments I created while learning image processing in high school.
 
-Those early programs explored individual filtering techniques using simple scripts and basic image display methods.
+Those early programs explored individual filtering techniques through small standalone scripts, including Gaussian smoothing, averaging filters, bilateral filtering, guided filtering, and other basic image-processing experiments.
 
-Several years later, the project was rebuilt from the ground up as a structured desktop application.
+At the time, each algorithm was implemented independently and tested using simple image-loading and display methods.
 
-Rather than replacing the original ideas, the current project uses them as the starting point for exploring the development of modern image-restoration and super-resolution techniques.
+Several years later, the original experiments became the starting point for rebuilding the project as a structured desktop application.
+
+The current version does not simply replace those early programs.
+
+Instead, it uses the same fundamental ideas as the beginning of a larger progression:
+
+```text
+Early OpenCV Experiments
+        ↓
+Structured Traditional Filtering
+        ↓
+Advanced Image Viewer
+        ↓
+Traditional Image Upscaling
+        ↓
+Neural Super-Resolution
+        ↓
+Modern Image Restoration
+```
+
+The project therefore serves as both a software-development project and a record of the progression from early image-processing experiments toward modern computer-vision and deep-learning techniques.
 
 ---
 
 ## Status
 
-**v0.2 complete**
+**v0.3 complete**
 
-Traditional image-filtering stage completed.
+Image upscaling and traditional interpolation foundations completed.
+
+Current implemented processing methods:
+
+**Traditional Filtering**
+
+- Mean Filter
+- Gaussian Filter
+- Median Filter
+- Bilateral Filter
+- Guided Filter
+- Non-Local Means
+
+**Traditional Image Upscaling**
+
+- Nearest Neighbor Interpolation
+- Bilinear Interpolation
+- Bicubic Interpolation
+- Lanczos Interpolation
+
+Current upscaling capabilities:
+
+- 2x enlargement
+- 3x enlargement
+- 4x enlargement
+- Automatic target-resolution calculation
+- Different-resolution Original / Processed comparison
+- Synchronized zoom and panning
+- Independent 100% pixel inspection
+- Processing runtime measurement
+- Processed-image export at the generated resolution
+
+The project has now completed the traditional image-processing and interpolation foundations required for neural super-resolution.
 
 Next milestone:
 
-**v0.3 - Image Upscaling & Super-Resolution Foundations**
+**v0.4 - Neural Super-Resolution Foundations**
+
+Planned first models:
+
+- FSRCNN
+- EDSR
+
+The next development stage will begin the transition from:
+
+```text
+Traditional Interpolation
+        ↓
+Neural-Network Super-Resolution
+```
