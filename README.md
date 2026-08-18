@@ -142,6 +142,174 @@ For example, consider the following neighbourhood values:
 10, 11, 10, 12, 255, 9, 10, 11, 10
 ```
 
+### Bilateral Filter
+
+The Bilateral Filter performs edge-preserving smoothing.
+
+Unlike Gaussian Filtering, the weight assigned to neighbouring pixels depends on both their spatial distance and their color or intensity difference.
+
+The filtered value at pixel `p` can be written as:
+
+$$ I_{\mathrm{out}}(p)=\frac{1}{W_p}\sum_{q\in\Omega}w(p,q)\,I(q) $$
+
+The bilateral weight is:
+
+$$ w(p,q)=\exp\left(-\frac{\|p-q\|^2}{2\sigma_{\mathrm{space}}^2}\right)\exp\left(-\frac{\|I(p)-I(q)\|^2}{2\sigma_{\mathrm{color}}^2}\right) $$
+
+The normalization factor is:
+
+$$ W_p=\sum_{q\in\Omega}w(p,q) $$
+
+The first exponential term represents **spatial similarity**.
+
+Pixels that are farther away from the centre pixel receive less weight.
+
+The second exponential term represents **color or intensity similarity**.
+
+Pixels that have very different colors receive less influence even if they are physically close.
+
+As a result, neighbouring pixels located on opposite sides of a strong edge have less influence on each other.
+
+This allows the Bilateral Filter to smooth relatively uniform image regions while preserving important edges.
+
+**Main parameters:**
+
+- Diameter
+- Sigma Color
+- Sigma Space
+
+**Diameter** controls the size of the neighbourhood used during filtering.
+
+**Sigma Color** controls how different pixel colors may be while still influencing each other.
+
+**Sigma Space** controls how far spatial influence extends.
+
+**Typical use:**
+
+- Edge-preserving smoothing
+- Noise reduction
+- Surface smoothing
+- Image enhancement
+
+---
+
+### Guided Filter
+
+The Guided Filter is an edge-preserving filtering technique based on a local linear model.
+
+Instead of directly defining spatial and color weights, the Guided Filter assumes that the output image has a locally linear relationship with a guidance image.
+
+Inside a local window:
+
+$$ q_i=a_kI_i+b_k $$
+
+where:
+
+- `q_i` is the filtered output
+- `I_i` is the guidance image
+- `a_k` and `b_k` are locally estimated coefficients
+
+The coefficient `a_k` can be written as:
+
+$$ a_k=\frac{\frac{1}{|\omega_k|}\sum_{i\in\omega_k}I_ip_i-\mu_k\bar{p}_k}{\sigma_k^2+\epsilon} $$
+
+The second coefficient is:
+
+$$ b_k=\bar{p}_k-a_k\mu_k $$
+
+where:
+
+- `p` is the input image being filtered
+- `mu_k` is the local mean of the guidance image
+- `sigma_k^2` is the local variance of the guidance image
+- `p_bar_k` is the local mean of the input image
+- `epsilon` is a regularization parameter
+- `omega_k` represents the local window
+
+In the current implementation, a grayscale representation of the original image is used as the guidance image.
+
+The local linear relationship allows the filter to smooth image regions while preserving important structural boundaries.
+
+The `epsilon` parameter also prevents instability when the local variance is very small and influences the balance between smoothing and edge preservation.
+
+**Main parameters:**
+
+- Radius
+- Epsilon
+
+**Radius** controls the size of the local region used to estimate the linear model.
+
+**Epsilon** controls the regularization strength and influences the balance between smoothing and edge preservation.
+
+**Typical use:**
+
+- Edge-preserving smoothing
+- Detail enhancement
+- Image restoration
+- Structure-aware filtering
+
+---
+
+### Non-Local Means
+
+Non-Local Means uses a fundamentally different approach from traditional local filters.
+
+Instead of estimating a pixel only from immediately neighbouring pixels, the algorithm searches a larger region for image patches with similar structure.
+
+The estimated value of a pixel `p` can be expressed as:
+
+$$ I_{\mathrm{out}}(p)=\frac{1}{Z(p)}\sum_{q\in\Omega}w(p,q)\,I(q) $$
+
+The normalization factor is:
+
+$$ Z(p)=\sum_{q\in\Omega}w(p,q) $$
+
+The similarity weight between two image patches can be represented as:
+
+$$ w(p,q)=\exp\left(-\frac{\|P(p)-P(q)\|^2}{h^2}\right) $$
+
+where:
+
+- `P(p)` is the image patch surrounding pixel `p`
+- `P(q)` is another image patch inside the search region
+- The patch-distance term measures how different the two patches are
+- `h` controls the denoising strength
+
+When two image patches are very similar:
+
+$$ \|P(p)-P(q)\|^2\approx0 $$
+
+their similarity weight becomes relatively large.
+
+When two patches are very different, their similarity weight becomes small.
+
+This allows Non-Local Means to use repeated textures and structures from different locations when estimating cleaner pixel values.
+
+Because many patches must be compared, Non-Local Means is significantly more computationally expensive than simpler local filters.
+
+**Main parameters:**
+
+- Strength
+- Color Strength
+- Template Window
+- Search Window
+
+**Strength** controls the overall denoising strength.
+
+**Color Strength** controls the denoising strength applied to color information.
+
+**Template Window** determines the size of the image patches being compared.
+
+**Search Window** determines how large an area is searched for similar patches.
+
+**Typical use:**
+
+- Image denoising
+- Texture-preserving noise reduction
+- Photographic noise removal
+
+---
+
 
 ## Image Viewer
 
