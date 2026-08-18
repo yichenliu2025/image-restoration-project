@@ -46,6 +46,14 @@ The application now provides six classical filtering and denoising methods, algo
 
 ---
 
+### Math Test
+
+$$ G(x,y)=\frac{1}{2\pi\sigma^2}\exp\left(-\frac{x^2+y^2}{2\sigma^2}\right) $$
+
+$$ I_{\mathrm{out}}(p)=\frac{1}{W_p}\sum_{q\in\Omega}w(p,q)\,I(q) $$
+
+$$ w(p,q)=\exp\left(-\frac{\|P(p)-P(q)\|^2}{h^2}\right) $$
+
 ## Algorithms
 
 ### Mean Filter
