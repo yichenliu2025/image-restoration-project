@@ -8,13 +8,10 @@ The goal of this project is to gradually transform those early experiments into 
 
 ---
 
-## Current Version
-
-**v0.2 - Advanced Traditional Filtering**
-
-Version 0.2 expands the original filtering application into a more complete traditional image-processing laboratory.
-
-The application now provides six classical filtering and denoising methods, algorithm-specific parameter controls, synchronized image viewers, pixel-level zoom inspection, and processing-time measurement.
+## Current Version **v0.3 - Image Upscaling & Super-Resolution Foundations** 
+Version 0.3 introduces the first image-upscaling stage of the project. 
+The application now supports four traditional interpolation methods and allows images to be enlarged by 2x, 3x, or 4x while comparing the original and processed images at different resolutions. 
+This version establishes the traditional interpolation baseline that will later be used to compare classical upscaling against neural-network super-resolution models.
 
 ---
 
@@ -28,6 +25,18 @@ The application now provides six classical filtering and denoising methods, algo
 * Bilateral Filter
 * Guided Filter
 * Non-Local Means Denoising
+
+### Image Upscaling 
+- Nearest Neighbor Interpolation
+- Bilinear Interpolation
+- Bicubic Interpolation
+- Lanczos Interpolation
+- 2x image upscaling
+- 3x image upscaling
+- 4x image upscaling
+- Automatic target-resolution calculation
+- Original and processed resolution display
+- Different-resolution synchronized comparison
 
 ### User Interface
 
@@ -309,6 +318,335 @@ Because many patches must be compared, Non-Local Means is significantly more com
 - Photographic noise removal
 
 ---
+
+## Image Upscaling
+
+Version 0.3 introduces traditional image interpolation as the first step toward super-resolution.
+
+Unlike filtering algorithms, which modify existing pixel values while keeping the image resolution unchanged, upscaling algorithms generate additional pixels to increase the dimensions of an image.
+
+If an original image has resolution:
+
+```text
+Width x Height
+```
+
+and is enlarged by a scale factor `s`, the output resolution becomes:
+
+```text
+(s x Width) x (s x Height)
+```
+
+For example:
+
+```text
+640 x 480
+    ↓ 4x
+2560 x 1920
+```
+
+Although interpolation increases the number of pixels, it does not recover genuinely new image information. Instead, the new pixel values are estimated from the existing pixels.
+
+This makes traditional interpolation an important baseline for the neural-network super-resolution methods that will be introduced in later versions.
+
+---
+
+### Nearest Neighbor Interpolation
+
+Nearest Neighbor is the simplest image interpolation method.
+
+For every pixel in the enlarged image, the algorithm identifies the closest corresponding pixel in the original image and directly copies its value.
+
+If the scale factor is `s`, the source coordinates corresponding to an output position `(x', y')` can be approximated as:
+
+$$ x=\frac{x'}{s},\qquad y=\frac{y'}{s} $$
+
+The output pixel is then obtained from the nearest source pixel:
+
+$$ I_{\mathrm{out}}(x',y')=I\left(\mathrm{round}\left(\frac{x'}{s}\right),\mathrm{round}\left(\frac{y'}{s}\right)\right) $$
+
+where:
+
+- `I_out(x', y')` is a pixel in the enlarged image
+- `I(x, y)` is a pixel in the original image
+- `s` is the scale factor
+- `round()` selects the nearest source coordinate
+
+For integer scale factors, this effectively causes each original pixel to be repeated across a larger region.
+
+Conceptually:
+
+```text
+Original:
+
+A B
+C D
+
+2x Nearest Neighbor:
+
+A A B B
+A A B B
+C C D D
+C C D D
+```
+
+Nearest Neighbor performs almost no smoothing.
+
+As a result, individual source pixels become clearly visible when the image is enlarged significantly.
+
+**Main parameter:**
+
+- Scale Factor
+
+**Advantages:**
+
+- Extremely fast
+- Very simple computation
+- Preserves exact original pixel values
+- Useful for pixel art and discrete image labels
+
+**Limitations:**
+
+- Blocky appearance
+- Jagged diagonal edges
+- Poor photographic enlargement quality
+
+**Typical use:**
+
+- Fast image resizing
+- Pixel-art enlargement
+- Segmentation masks
+- Baseline upscaling comparison
+
+---
+
+### Bilinear Interpolation
+
+Bilinear Interpolation produces smoother results by using the four nearest source pixels instead of copying only one pixel.
+
+First, the output coordinate is mapped back to a continuous position in the source image:
+
+$$ x=\frac{x'}{s},\qquad y=\frac{y'}{s} $$
+
+Let the surrounding source pixels be defined by:
+
+$$ x_0=\lfloor x\rfloor,\qquad x_1=x_0+1,\qquad y_0=\lfloor y\rfloor,\qquad y_1=y_0+1 $$
+
+The fractional distances are:
+
+$$ \alpha=x-x_0,\qquad \beta=y-y_0 $$
+
+The interpolated output value is then:
+
+$$ I_{\mathrm{out}}(x',y')=(1-\alpha)(1-\beta)I(x_0,y_0)+\alpha(1-\beta)I(x_1,y_0)+(1-\alpha)\beta I(x_0,y_1)+\alpha\beta I(x_1,y_1) $$
+
+The four neighbouring pixels therefore contribute according to how close they are to the desired source position.
+
+Conceptually:
+
+```text
+I(x0,y0) -------- I(x1,y0)
+     |                |
+     |       X        |
+     |                |
+I(x0,y1) -------- I(x1,y1)
+```
+
+Compared with Nearest Neighbor, Bilinear Interpolation greatly reduces visible pixel blocks and produces smoother transitions.
+
+However, averaging neighbouring pixels also tends to soften fine details and sharp edges.
+
+**Main parameter:**
+
+- Scale Factor
+
+**Advantages:**
+
+- Fast
+- Smooth output
+- Better photographic appearance than Nearest Neighbor
+- Low computational cost
+
+**Limitations:**
+
+- Softens edges
+- Blurs fine texture
+- Cannot reconstruct missing detail
+
+**Typical use:**
+
+- General-purpose image resizing
+- Smooth image enlargement
+- Real-time image scaling
+- Traditional interpolation baseline
+
+---
+
+### Bicubic Interpolation
+
+Bicubic Interpolation extends the idea of Bilinear Interpolation by using a larger neighbourhood.
+
+Instead of using only four nearby pixels, Bicubic Interpolation typically evaluates a `4 x 4` neighbourhood containing 16 source pixels.
+
+For a mapped source position `(x, y)`, the interpolated value can be represented as:
+
+$$ I_{\mathrm{out}}(x',y')=\sum_{m=-1}^{2}\sum_{n=-1}^{2}I(x_0+m,y_0+n)\,W(x-x_0-m)\,W(y-y_0-n) $$
+
+where:
+
+- `I_out(x', y')` is the interpolated output pixel
+- `(x, y)` is the mapped continuous source position
+- `(x0, y0)` identifies the nearby integer source location
+- `m` and `n` select pixels inside the `4 x 4` neighbourhood
+- `W()` is a cubic interpolation kernel
+
+Conceptually:
+
+```text
+x x x x
+x x x x
+x x X x
+x x x x
+
+16 surrounding source samples
+contribute to the new pixel X
+```
+
+The cubic weighting function creates smoother transitions than Bilinear Interpolation while generally preserving edges and gradients more effectively.
+
+Bicubic Interpolation is especially important in this project because it will serve as one of the primary traditional baselines for later neural-network super-resolution models.
+
+Future models such as FSRCNN, EDSR, and Real-ESRGAN can therefore be compared against a strong non-learning-based enlargement method.
+
+**Main parameter:**
+
+- Scale Factor
+
+**Advantages:**
+
+- Better visual quality than Nearest Neighbor and Bilinear
+- Smooth gradients
+- More natural edge transitions
+- Strong traditional super-resolution baseline
+
+**Limitations:**
+
+- More computationally expensive than Bilinear
+- Can still blur very fine detail
+- Generated pixels are still mathematically interpolated rather than reconstructed from learned information
+
+**Typical use:**
+
+- High-quality traditional image enlargement
+- Photographic resizing
+- Image-processing pipelines
+- Super-resolution baseline comparison
+
+---
+
+### Lanczos Interpolation
+
+Lanczos Interpolation is a higher-order interpolation method based on a windowed sinc function.
+
+The ideal sinc function used in signal reconstruction is:
+
+$$ \mathrm{sinc}(x)=\frac{\sin(\pi x)}{\pi x} $$
+
+Lanczos limits this function to a finite neighbourhood by multiplying it with another scaled sinc function.
+
+The Lanczos kernel can be written as:
+
+$$ L(x)=\mathrm{sinc}(x)\,\mathrm{sinc}\left(\frac{x}{a}\right),\qquad |x|<a $$
+
+Outside the interpolation window:
+
+$$ L(x)=0,\qquad |x|\geq a $$
+
+where:
+
+- `a` controls the size of the Lanczos window
+- `sinc(x)` provides the reconstruction weighting
+- nearby source pixels contribute according to the Lanczos kernel
+
+OpenCV's `INTER_LANCZOS4` implementation uses a Lanczos window with `a = 4`, resulting in an `8 x 8` source neighbourhood.
+
+For two-dimensional images, the interpolation is applied in both spatial directions.
+
+A general representation is:
+
+$$ I_{\mathrm{out}}(x',y')=\sum_i\sum_j I(i,j)\,L(x-i)\,L(y-j) $$
+
+Lanczos often preserves high-frequency image information and sharp edges better than simpler interpolation methods.
+
+However, strong transitions can occasionally produce **ringing artifacts**, where faint bright or dark oscillations appear near high-contrast boundaries.
+
+**Main parameter:**
+
+- Scale Factor
+
+**Advantages:**
+
+- Sharp output
+- Strong preservation of high-frequency detail
+- High-quality photographic resizing
+- Often sharper than Bilinear and Bicubic interpolation
+
+**Limitations:**
+
+- More computationally expensive
+- Can introduce ringing near strong edges
+- Does not reconstruct information that is absent from the original image
+
+**Typical use:**
+
+- High-quality image resizing
+- Sharp photographic enlargement
+- Downsampling and upscaling
+- Comparison with Bicubic interpolation
+
+---
+
+### Traditional Upscaling vs. Super-Resolution
+
+All four interpolation algorithms introduced in v0.3 increase the number of pixels in an image.
+
+For a scale factor `s`, the output width and height become:
+
+$$ W_{\mathrm{out}}=sW_{\mathrm{in}},\qquad H_{\mathrm{out}}=sH_{\mathrm{in}} $$
+
+The total number of pixels therefore increases by:
+
+$$ N_{\mathrm{out}}=s^2N_{\mathrm{in}} $$
+
+For example, a `4x` enlargement produces:
+
+$$ 4^2=16 $$
+
+times as many pixels.
+
+However, those additional pixels are estimated entirely from the original image.
+
+Traditional interpolation therefore performs:
+
+```text
+Existing Pixels
+      ↓
+Mathematical Estimation
+      ↓
+More Pixels
+```
+
+It does **not** perform:
+
+```text
+Low-Resolution Image
+      ↓
+Learned Image Model
+      ↓
+Predicted Fine Detail
+```
+
+This distinction establishes the motivation for the next stage of the project: **Neural Super-Resolution**.
 
 
 ## Image Viewer
