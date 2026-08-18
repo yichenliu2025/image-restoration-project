@@ -695,6 +695,110 @@ This design is important for future super-resolution algorithms, where the proce
 
 ---
 
+### Different-Resolution Comparison
+
+Version 0.3 extends the synchronized viewer system to support comparisons between images with different pixel resolutions.
+
+Traditional filtering keeps the original image dimensions unchanged.
+
+Image upscaling introduces a new situation where the source and processed images may contain very different numbers of pixels.
+
+For example:
+
+```text
+Original
+640 x 480
+
+    ↓ 4x Upscaling
+
+Processed
+2560 x 1920
+```
+
+If synchronization were based only on absolute pixel coordinates or scrollbar positions, the two viewers would no longer remain aligned.
+
+Instead, the application uses **normalized image coordinates**.
+
+For an image with width `W` and height `H`, a position `(x, y)` can be represented as:
+
+```text
+normalized_x = x / W
+normalized_y = y / H
+```
+
+These normalized values describe the relative position inside the image rather than an absolute pixel coordinate.
+
+For example:
+
+```text
+Original image:
+x = 320
+W = 640
+
+normalized_x = 320 / 640 = 0.5
+```
+
+The same normalized position can then be mapped onto a 4x enlarged image:
+
+```text
+Processed image:
+W = 2560
+
+x = 0.5 x 2560
+x = 1280
+```
+
+Both viewers therefore remain focused on approximately the same physical region of the image even when their resolutions are different.
+
+### Independent 100% Views
+
+Version 0.3 also separates the previous 100% viewing control into:
+
+- **Original 100%**
+- **Result 100%**
+
+This is necessary because one source pixel may correspond to multiple output pixels after enlargement.
+
+For example, with 4x upscaling:
+
+```text
+Original
+1 pixel
+
+    ↓ 4x in width and height
+
+Processed
+4 x 4 = 16 pixels
+```
+
+Viewing the original at 100% therefore represents a different physical screen scale from viewing the processed image at 100%.
+
+The separate controls make it possible to inspect:
+
+- the original source-pixel structure
+- the newly interpolated output-pixel structure
+- edge behaviour
+- smoothing
+- block artifacts
+- ringing artifacts
+- differences between interpolation algorithms
+
+### Resolution Display
+
+The viewer titles now display the resolution of both images.
+
+Example:
+
+```text
+Original · 640 x 480
+
+Processed · 2560 x 1920
+```
+
+The application also calculates the target resolution before processing whenever the scale factor is changed.
+
+This makes the relationship between the source resolution and output resolution immediately visible.
+
 ## Processing Runtime
 
 Version 0.2 measures the execution time of each filtering operation.
@@ -714,19 +818,27 @@ This feature will later be expanded into a more complete benchmarking system for
 ## Project Structure
 
 ```text
-image-restoration-lab/
+image-restoration-project/
 │
 ├── main.py
 ├── requirements.txt
 │
 ├── algorithms/
 │   ├── __init__.py
+│   │
 │   ├── mean_filter.py
 │   ├── gaussian_filter.py
 │   ├── median_filter.py
 │   ├── bilateral_filter.py
 │   ├── guided_filter.py
-│   └── non_local_means.py
+│   ├── non_local_means.py
+│   │
+│   └── upscaling/
+│       ├── __init__.py
+│       ├── nearest_neighbor.py
+│       ├── bilinear.py
+│       ├── bicubic.py
+│       └── lanczos.py
 │
 ├── app/
 │   ├── __init__.py
@@ -739,9 +851,77 @@ image-restoration-lab/
 
 The project uses a modular structure so that image-processing algorithms remain separated from the graphical user interface.
 
-This architecture will allow future super-resolution algorithms to be added without redesigning the entire application.
+### `algorithms/`
 
----
+Contains the traditional image-filtering algorithms introduced in v0.1 and v0.2.
+
+```text
+Mean
+Gaussian
+Median
+Bilateral
+Guided
+Non-Local Means
+```
+
+### `algorithms/upscaling/`
+
+Introduced in v0.3.
+
+This package contains the traditional image-interpolation algorithms:
+
+```text
+Nearest Neighbor
+Bilinear
+Bicubic
+Lanczos
+```
+
+Separating interpolation from filtering prepares the project for additional super-resolution categories in future versions.
+
+The architecture can later expand into a structure such as:
+
+```text
+algorithms/
+│
+├── traditional filters
+│
+├── upscaling
+│
+└── super_resolution
+    ├── FSRCNN
+    ├── EDSR
+    ├── Real-ESRGAN
+    └── SwinIR
+```
+
+### `app/`
+
+Contains the PySide6 graphical user interface and synchronized image-viewing system.
+
+`main_window.py` manages:
+
+- algorithm categories
+- parameter controls
+- image processing
+- resolution information
+- runtime measurement
+- application state
+
+`image_viewer.py` manages:
+
+- image display
+- zoom
+- pan
+- fit-to-window
+- 100% viewing
+- normalized-coordinate synchronization
+
+### `tools/`
+
+Contains development and environment-diagnostic utilities.
+
+The Python virtual environment is intentionally excluded from the repository and can be recreated using `requirements.txt`.
 
 ## Requirements
 
@@ -837,26 +1017,136 @@ This version establishes the viewer and application architecture that will be re
 
 ---
 
+### v0.3 - Image Upscaling & Super-Resolution Foundations
+
+Version 0.3 introduces traditional image interpolation and marks the project's transition from filtering toward image super-resolution.
+
+The previous versions focused on modifying pixel values while preserving the original image dimensions.
+
+Version 0.3 introduces algorithms that actively generate additional pixels and increase the output resolution.
+
+**New interpolation algorithms:**
+
+- Nearest Neighbor
+- Bilinear Interpolation
+- Bicubic Interpolation
+- Lanczos Interpolation
+
+**New upscaling capabilities:**
+
+- 2x image enlargement
+- 3x image enlargement
+- 4x image enlargement
+- Automatic target-resolution calculation
+- Original resolution display
+- Processed resolution display
+
+**Viewer improvements:**
+
+- Separate Original 100% and Result 100% controls
+- Independent Original and Result zoom-percentage display
+- Different-resolution synchronized zoom
+- Different-resolution synchronized panning
+- Normalized-coordinate viewer synchronization
+
+**Architecture improvements:**
+
+- Added a dedicated `algorithms/upscaling/` package
+- Separated interpolation algorithms from traditional filters
+- Added algorithm categories to the user interface
+- Added shared scale-factor controls
+- Added upscaling-specific parameter handling
+- Preserved compatibility with all v0.1 and v0.2 filtering algorithms
+
+**Measurement and output:**
+
+- Processing runtime remains available for all interpolation algorithms
+- Output resolution is displayed after processing
+- Enlarged images can be exported at their true generated resolution
+
+This version establishes four traditional interpolation methods as baselines for the neural-network super-resolution algorithms that will be introduced in future versions.
+
+The project has now progressed through:
+
+```text
+Classical Local Filtering
+        ↓
+Edge-Preserving Filtering
+        ↓
+Patch-Based Denoising
+        ↓
+Traditional Image Interpolation
+        ↓
+Neural Super-Resolution
+        (next stage)
+```
+
+## Development Roadmap
+
 ## Development Roadmap
 
 ### Completed
 
-* [x] v0.1 - Basic Filtering GUI
-* [x] v0.2 - Advanced Traditional Filtering
+- [x] **v0.1 - Basic Filtering GUI**
+  - Mean Filter
+  - Gaussian Filter
+  - Median Filter
+  - Basic PySide6 interface
+  - Image loading and export
+  - Adjustable filter parameters
 
-### Next: v0.3 - Image Upscaling & Super-Resolution Foundations
+- [x] **v0.2 - Advanced Traditional Filtering**
+  - Bilateral Filter
+  - Guided Filter
+  - Non-Local Means
+  - Dynamic algorithm parameter panels
+  - QGraphicsView-based image viewer
+  - Mouse-wheel zoom
+  - Mouse-drag panning
+  - Fit-to-window mode
+  - 100% pixel inspection
+  - Synchronized Original / Processed viewers
+  - Processing runtime measurement
 
-The next stage will begin the transition from traditional image filtering to image upscaling and super-resolution.
+- [x] **v0.3 - Image Upscaling & Super-Resolution Foundations**
+  - Nearest Neighbor Interpolation
+  - Bilinear Interpolation
+  - Bicubic Interpolation
+  - Lanczos Interpolation
+  - 2x, 3x, and 4x image enlargement
+  - Automatic target-resolution calculation
+  - Original and processed resolution display
+  - Different-resolution viewer synchronization
+  - Independent Original / Result 100% viewing
+  - Traditional interpolation baseline for future super-resolution
 
-Planned topics include:
+---
 
-* Bicubic interpolation
-* Resolution scaling
-* 2× and 4× image upscaling
-* Original / Upscaled comparison
-* Resolution and scale-factor display
-* Traditional interpolation baseline
-* Preparation for neural-network super-resolution models
+### Next
+
+#### v0.4 - Neural Super-Resolution Foundations
+
+Version 0.4 will introduce the first learned image super-resolution models.
+
+Planned development:
+
+- FSRCNN
+- EDSR
+- Neural-network model loading
+- Pre-trained model management
+- CNN-based image super-resolution
+- 2x and 4x neural upscaling
+- Traditional interpolation vs. neural super-resolution comparison
+- Model inference runtime measurement
+- Preparation for GPU-accelerated inference
+
+The main goal of v0.4 will be to demonstrate the transition from:
+
+```text
+Mathematical Interpolation
+        ↓
+Learned Image Reconstruction
+```
 
 ### Future Development
 
