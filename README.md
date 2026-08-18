@@ -44,8 +44,6 @@ The application now provides six classical filtering and denoising methods, algo
 * Processing runtime display
 * Automatic image-position synchronization
 
----
-
 ## Algorithms
 
 ### Mean Filter
@@ -407,6 +405,8 @@ Because many patches must be compared, Non-Local Means is significantly more com
 - Image denoising
 - Texture-preserving noise reduction
 - Photographic noise removal
+
+
 
 ## Image Viewer
 
